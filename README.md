@@ -1,6 +1,7 @@
-# ankify-dictionary
+# catch-all-mobi
 
-Creates custom Kindle dictionaries that ensure **every word lookup** gets logged to Vocab Builder - even words not in the original dictionary.
+Creates custom Kindle dictionaries that ensure **every word lookup** gets logged to Vocab Builder - even words not in the original dictionary.  
+For use with [kindle-to-anki](https://github.com/Jakub2222250/kindle-to-anki) project, so that every Kindle lookup can be studied via Anki.
 
 ## How it works
 
