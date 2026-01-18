@@ -35,19 +35,19 @@ data/
 cd src
 
 # Extract words from all epubs
-py ankify_dictionary.py epubs
+py catch_all_mobi.py epubs
 
 # Extract indexed forms from dictionary (optional, for stats)
-py ankify_dictionary.py dictionary
+py catch_all_mobi.py dictionary
 
 # Build dictionary for a single book (interactive selection)
-py ankify_dictionary.py build-single
+py catch_all_mobi.py build-single
 
 # Build dictionary for all books combined
-py ankify_dictionary.py build
+py catch_all_mobi.py build
 
 # Run all steps
-py ankify_dictionary.py all
+py catch_all_mobi.py all
 ```
 
 ## Kindle setup
