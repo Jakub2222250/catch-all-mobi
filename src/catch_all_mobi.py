@@ -452,7 +452,7 @@ def create_single_book_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: st
 def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], output_name: str,
                      src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Build a MOBI dictionary from surface forms and dictionary entries."""
-    tempdir = Path(tempfile.mkdtemp(prefix="ankify_"))
+    tempdir = Path(tempfile.mkdtemp(prefix="catchall_"))
     print(f"Working directory: {tempdir}")
 
     try:
@@ -483,7 +483,7 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
     <dc-metadata xmlns:dc="http://purl.org/metadata/dublin_core">
       <dc:title>{output_name}</dc:title>
       <dc:language>{src_lang}</dc:language>
-      <dc:creator>ankify-dictionary</dc:creator>
+      <dc:creator>catch-all-mobi</dc:creator>
     </dc-metadata>
     <x-metadata>
       <DictionaryInLanguage>{src_lang}</DictionaryInLanguage>
