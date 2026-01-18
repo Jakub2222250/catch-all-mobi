@@ -50,6 +50,23 @@ py catch_all_mobi.py build
 py catch_all_mobi.py all
 ```
 
+### Language options
+
+By default, dictionaries are built for Polish→English. Use `--src-lang` and `--dst-lang` to change:
+
+```bash
+# German to English dictionary
+py catch_all_mobi.py build --src-lang de --dst-lang en
+
+# Spanish to English
+py catch_all_mobi.py build-single -s es -d en
+
+# French to German
+py catch_all_mobi.py all --src-lang fr --dst-lang de
+```
+
+Supports Latin-script languages (Western/Central/Eastern European).
+
 ## Kindle setup
 
 1. Copy the generated `ANKI_*.mobi` to your Kindle's `documents` folder

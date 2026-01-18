@@ -14,6 +14,13 @@ from html.parser import HTMLParser
 
 import mobi
 
+# Default language pair (source language -> translation language)
+DEFAULT_SRC_LANG = "pl"
+DEFAULT_DST_LANG = "en"
+
+# Latin script with common European diacritics (covers most Western/Central/Eastern European languages)
+LATIN_WORD_PATTERN = re.compile(r'[a-zA-ZàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿąćęłńóśźżĄĆĘŁŃÓŚŹŻčďěňřšťůžČĎĚŇŘŠŤŮŽőűŐŰßẞ]+', re.UNICODE)
+
 # Paths relative to project root
 DATA_DIR = Path(__file__).parent.parent / "data"
 INPUTS_DIR = DATA_DIR / "inputs"
@@ -23,6 +30,7 @@ OUTPUTS_DIR = DATA_DIR / "outputs"
 SURFACE_FORMS_DIR = OUTPUTS_DIR / "surface_forms"
 DICTIONARY_FORMS_DIR = OUTPUTS_DIR / "dictionary_forms"
 OUTPUT_DICTIONARY_DIR = OUTPUTS_DIR / "dictionary"
+OUTPUT_DICTIONARY_SOURCE_DIR = OUTPUTS_DIR / "dictionary_source"
 
 
 class HTMLTextExtractor(HTMLParser):
@@ -89,11 +97,7 @@ def extract_surface_forms(text: str) -> set[str]:
     - Keep only words with actual letters
     - Preserve case (important for proper nouns in some languages)
     """
-    # Split on whitespace and punctuation, keeping word characters
-    # This regex captures sequences of letters (including Polish diacritics)
-    word_pattern = re.compile(r'[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+', re.UNICODE)
-
-    words = word_pattern.findall(text)
+    words = LATIN_WORD_PATTERN.findall(text)
 
     # Apply filtering rules
     filtered_words = set()
@@ -360,9 +364,10 @@ def generate_entries_html(words: set[str], dict_entries: dict[str, str]) -> tupl
     return '\n'.join(entries), real_count, dummy_count
 
 
-def create_augmented_dictionary():
+def create_augmented_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Create a standalone dictionary with entries for all words in ebooks, using real definitions when available."""
     OUTPUT_DICTIONARY_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DICTIONARY_SOURCE_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load all surface forms from ebooks
     print("Loading surface forms from ebooks...")
@@ -383,12 +388,13 @@ def create_augmented_dictionary():
         dict_entries = {}
 
     output_name = "ANKI_vocab_entries"
-    build_dictionary(surface_forms, dict_entries, output_name)
+    build_dictionary(surface_forms, dict_entries, output_name, src_lang, dst_lang)
 
 
-def create_single_book_dictionary():
+def create_single_book_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Create a dictionary for a single selected book."""
     OUTPUT_DICTIONARY_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DICTIONARY_SOURCE_DIR.mkdir(parents=True, exist_ok=True)
 
     # Find surface form files
     surface_files = sorted(SURFACE_FORMS_DIR.glob("*.txt"))
@@ -442,10 +448,11 @@ def create_single_book_dictionary():
     # Create safe filename
     safe_name = re.sub(r'[^\w\-]', '_', book_name)[:50]
     output_name = f"ANKI_{safe_name}"
-    build_dictionary(surface_forms, dict_entries, output_name)
+    build_dictionary(surface_forms, dict_entries, output_name, src_lang, dst_lang)
 
 
-def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], output_name: str):
+def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], output_name: str,
+                     src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Build a MOBI dictionary from surface forms and dictionary entries."""
     tempdir = Path(tempfile.mkdtemp(prefix="ankify_"))
 
@@ -476,13 +483,13 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
   <metadata>
     <dc-metadata xmlns:dc="http://purl.org/metadata/dublin_core">
       <dc:title>{output_name}</dc:title>
-      <dc:language>pl</dc:language>
+      <dc:language>{src_lang}</dc:language>
       <dc:creator>ankify-dictionary</dc:creator>
     </dc-metadata>
     <x-metadata>
-      <DictionaryInLanguage>pl</DictionaryInLanguage>
-      <DictionaryOutLanguage>en</DictionaryOutLanguage>
-      <DefaultLookupIndex>Polish</DefaultLookupIndex>
+      <DictionaryInLanguage>{src_lang}</DictionaryInLanguage>
+      <DictionaryOutLanguage>{dst_lang}</DictionaryOutLanguage>
+      <DefaultLookupIndex>{src_lang}</DefaultLookupIndex>
     </x-metadata>
   </metadata>
   <manifest>
@@ -547,8 +554,8 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
             print("Error: kindlegen not found.")
             print("Please install Kindle Previewer 3: https://www.amazon.com/Kindle-Previewer/b?node=21381691011")
             # Save the files for manual processing
-            backup_html = OUTPUT_DICTIONARY_DIR / f"{output_name}.html"
-            backup_opf = OUTPUT_DICTIONARY_DIR / f"{output_name}.opf"
+            backup_html = OUTPUT_DICTIONARY_SOURCE_DIR / f"{output_name}.html"
+            backup_opf = OUTPUT_DICTIONARY_SOURCE_DIR / f"{output_name}.opf"
             shutil.copy(html_path, backup_html)
             shutil.copy(opf_path, backup_opf)
             print(f"\nSaved source files for manual kindlegen run:")
@@ -570,6 +577,16 @@ def main():
         default="all",
         help="Processing stage: 'epubs', 'dictionary', 'build' (all books), 'build-single' (pick one book), or 'all'"
     )
+    parser.add_argument(
+        "--src-lang", "-s",
+        default=DEFAULT_SRC_LANG,
+        help=f"Source language code for dictionary (default: {DEFAULT_SRC_LANG})"
+    )
+    parser.add_argument(
+        "--dst-lang", "-d",
+        default=DEFAULT_DST_LANG,
+        help=f"Target/translation language code (default: {DEFAULT_DST_LANG})"
+    )
     args = parser.parse_args()
 
     if args.command in ("epubs", "all"):
@@ -583,13 +600,13 @@ def main():
             print()
 
     if args.command == "build":
-        create_augmented_dictionary()
+        create_augmented_dictionary(args.src_lang, args.dst_lang)
 
     if args.command == "build-single":
-        create_single_book_dictionary()
+        create_single_book_dictionary(args.src_lang, args.dst_lang)
 
     if args.command == "all":
-        create_augmented_dictionary()
+        create_augmented_dictionary(args.src_lang, args.dst_lang)
 
 
 if __name__ == "__main__":
