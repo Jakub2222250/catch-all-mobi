@@ -3,6 +3,7 @@ Extract surface forms from epub files for Kindle vocab builder support.
 """
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
@@ -283,8 +284,9 @@ def load_dictionary_forms() -> set[str]:
 
 
 def generate_dummy_entry(word: str) -> str:
-    """Generate a minimal dummy entry for a word."""
-    return f'<idx:entry scriptable="yes"><idx:orth value="{word}"></idx:orth><b>{word}</b><br/>.</idx:entry>'
+    """Generate a minimal dummy entry for a word with unique hash to avoid kindlegen slowdown."""
+    word_hash = hashlib.md5(word.encode()).hexdigest()[:8]
+    return f'<idx:entry scriptable="yes"><idx:orth value="{word}"></idx:orth><b>{word}</b><br/>{word_hash}</idx:entry>'
 
 
 def extract_dictionary_entries(mobi_path: Path) -> dict[str, str]:
@@ -350,13 +352,19 @@ def generate_entries_html(words: set[str], dict_entries: dict[str, str]) -> tupl
     Returns (html_string, real_count, dummy_count).
     """
     entries = []
+    seen_entries = set()  # Track entries already added to avoid duplicates
     real_count = 0
     dummy_count = 0
 
     for word in sorted(words):
         if word in dict_entries:
-            entries.append(dict_entries[word])
-            real_count += 1
+            entry_html = dict_entries[word]
+            # Use hash of entry content to detect duplicates
+            entry_id = hash(entry_html)
+            if entry_id not in seen_entries:
+                entries.append(entry_html)
+                seen_entries.add(entry_id)
+                real_count += 1
         else:
             entries.append(generate_dummy_entry(word))
             dummy_count += 1
