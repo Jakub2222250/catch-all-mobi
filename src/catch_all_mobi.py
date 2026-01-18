@@ -9,6 +9,7 @@ import subprocess
 import zipfile
 import tempfile
 import shutil
+import time
 from pathlib import Path
 from html.parser import HTMLParser
 
@@ -30,7 +31,6 @@ OUTPUTS_DIR = DATA_DIR / "outputs"
 SURFACE_FORMS_DIR = OUTPUTS_DIR / "surface_forms"
 DICTIONARY_FORMS_DIR = OUTPUTS_DIR / "dictionary_forms"
 OUTPUT_DICTIONARY_DIR = OUTPUTS_DIR / "dictionary"
-OUTPUT_DICTIONARY_SOURCE_DIR = OUTPUTS_DIR / "dictionary_source"
 
 
 class HTMLTextExtractor(HTMLParser):
@@ -367,7 +367,6 @@ def generate_entries_html(words: set[str], dict_entries: dict[str, str]) -> tupl
 def create_augmented_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Create a standalone dictionary with entries for all words in ebooks, using real definitions when available."""
     OUTPUT_DICTIONARY_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DICTIONARY_SOURCE_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load all surface forms from ebooks
     print("Loading surface forms from ebooks...")
@@ -394,7 +393,6 @@ def create_augmented_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: str 
 def create_single_book_dictionary(src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Create a dictionary for a single selected book."""
     OUTPUT_DICTIONARY_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DICTIONARY_SOURCE_DIR.mkdir(parents=True, exist_ok=True)
 
     # Find surface form files
     surface_files = sorted(SURFACE_FORMS_DIR.glob("*.txt"))
@@ -455,6 +453,7 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
                      src_lang: str = DEFAULT_SRC_LANG, dst_lang: str = DEFAULT_DST_LANG):
     """Build a MOBI dictionary from surface forms and dictionary entries."""
     tempdir = Path(tempfile.mkdtemp(prefix="ankify_"))
+    print(f"Working directory: {tempdir}")
 
     try:
         # Generate entries for ALL surface forms, using real definitions where available
@@ -525,12 +524,14 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
         print(f"Creating {output_mobi.name}...")
 
         try:
+            start_time = time.time()
             result = subprocess.run(
                 [kindlegen_exe, str(opf_path), '-c0', '-o', f"{output_name}.mobi"],
                 capture_output=True,
                 text=True,
                 cwd=tempdir
             )
+            elapsed = time.time() - start_time
 
             # kindlegen returns 1 for warnings, 2 for errors
             if result.returncode > 1:
@@ -542,7 +543,7 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
             generated_mobi = tempdir / f"{output_name}.mobi"
             if generated_mobi.exists():
                 shutil.move(str(generated_mobi), str(output_mobi))
-                print(f"\nSuccess! Created: {output_mobi}")
+                print(f"\nSuccess! Created: {output_mobi} (kindlegen took {elapsed:.1f}s)")
                 print(f"  {real_count} entries with real definitions")
                 print(f"  {dummy_count} entries with dummy placeholders")
                 print(f"\nUsage: Copy both this AND your original dictionary to Kindle.")
@@ -553,14 +554,6 @@ def build_dictionary(surface_forms: set[str], dict_entries: dict[str, str], outp
         except FileNotFoundError:
             print("Error: kindlegen not found.")
             print("Please install Kindle Previewer 3: https://www.amazon.com/Kindle-Previewer/b?node=21381691011")
-            # Save the files for manual processing
-            backup_html = OUTPUT_DICTIONARY_SOURCE_DIR / f"{output_name}.html"
-            backup_opf = OUTPUT_DICTIONARY_SOURCE_DIR / f"{output_name}.opf"
-            shutil.copy(html_path, backup_html)
-            shutil.copy(opf_path, backup_opf)
-            print(f"\nSaved source files for manual kindlegen run:")
-            print(f"  {backup_html}")
-            print(f"  {backup_opf}")
 
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
